@@ -25,8 +25,11 @@ library(gghighlight)
 wd = "~/Library/CloudStorage/OneDrive-McGillUniversity/Undergrad/Lab Work/2026 Summer Research/Data/Differences/"
 
 # Mean values at each wavenumber for each sky type
-tableMeans = read.csv(file=paste0(wd, "Table Means.csv"), stringsAsFactors = FALSE)
-tableSTD = read.csv(file=paste0(wd, "Table STD.csv"), stringsAsFactors = FALSE)
+tableMeans = read.csv(file=paste0(wd, "All Sites Means.csv"), stringsAsFactors = FALSE)
+tableSTD = read.csv(file=paste0(wd, "All Sites STD.csv"), stringsAsFactors = FALSE)
+
+# Wavenumber significances (significance and p values)
+wavenumberSignificance = read.csv(file=paste0(wd, 'Wavenumber Significance.csv'), stringsAsFactors = FALSE)
 
 # Hourly averages of previous variables, without STDEVs
 hourlyFull = read.csv(file=paste0(wd, "Hourly Full.csv"), stringsAsFactors = FALSE)
@@ -97,19 +100,19 @@ hourlyCloudy <- hourlyCloudy %>%
 # Plot the hourly values in the way of Cloud Fraction
 
 # Remake a graphs like the cloud cover one, but with hourly grouped values
-p <-ggplot(hourlyFull,aes(day, hour, fill=Carbon))+
-  geom_tile(color= 'white',size=0.1) + 
-  scale_fill_gradient2(name="Carbon hourly Differences", 
-                       low = "#C9D0D9", 
-                       mid = "darkred", 
-                       high = "black", 
+p <-ggplot(hourlyFull,aes(day, hour, fill=Methane))+
+  geom_tile(color= 'black',size=0.1) + 
+  scale_fill_gradient2(name="Ozone Hourly Differences", 
+                       low = 'darkblue', 
+                       mid = "white", 
+                       high = "darkred", 
                        midpoint = 0.5, 
                        na.value = 'black')
 p <-p + scale_y_continuous(trans = "reverse", breaks = unique(hourlyFull$hour))
 p <- p + facet_grid(~ month)
 p <-p + scale_x_continuous(breaks =c(1,10,20,31))
 p <-p + theme_minimal(base_size = 8)
-p <-p + labs(title= paste("Hourly Valid Entries"), x="Day", y="Hour")
+p <-p + labs(title= paste("Hourly Ozone Radiance Differences"), x="Day", y="Hour")
 p <-p + theme(legend.position = "bottom")+
   theme(plot.title=element_text(size = 14))+
   theme(axis.text.y=element_text(size=6)) +
@@ -140,7 +143,7 @@ tableMeans0 <- tableMeans[-nrow(tableMeans), ]
 # Transform your data
 tidyMeans <- tableMeans0 %>%
   pivot_longer(
-    cols = c(Burnside_Full, Gault_Full, Burnside_Clear, Gault_Clear, Burnside_Cloudy, Gault_Cloudy), # The columns you want to combine
+    cols = c(burnsideFull, gaultFull, burnsideClear, gaultClear, burnsideCloudy, gaultCloudy), # The columns you want to combine
     names_to = "Site",                                 # Name for the new category column
     values_to = "Value"                                    # Name for the new data values column
   )
@@ -165,21 +168,21 @@ p1 <- tidyMeans %>%
                #group_by(row) %>% 
                #slice_max(date),
              #aes(x=date, y=value, color=country),shape=16) +
-  geom_line(aes(x=Wavenumbers, y=Value, color=Site)) +
+  geom_line(aes(x=wavenumbers, y=Value, color=Site)) +
   gghighlight(use_direct_label = FALSE,
               unhighlighted_params = list(colour = alpha("grey85", 1))) +
-  geom_text(data=tidyMeans %>% # I think a label at the end of the plot..? not needed
-              group_by(Site) %>% 
-              slice_max(Wavenumbers),
-            aes(x=Wavenumbers, y=Value, color=Site, label = round(Value)),
-            hjust = -.5, vjust = .5, size=2.5, family=font, fontface="bold") +
+  #geom_text(data=tidyMeans %>% # I think a label at the end of the plot..? not needed
+              #group_by(Site) %>% 
+#              slice_max(wavenumbers),
+ #           aes(x=wavenumbers, y=Value, color=Site, label = round(Value)),
+  #          hjust = -.5, vjust = .5, size=2.5, family=font, fontface="bold") +
   scale_color_met_d(name="Redon") +
-  scale_x_conitnuous(breaks = c(600, 800, 1000, 1200)) +
-  scale_y_continuous(breaks = c(0,40,80,120,160),
+  # scale_x_conitnuous(breaks = c(600, 800, 1000, 1200)) +
+  # scale_y_continuous(breaks = c(0,40,80,120,160),
                      #labels = c("","","100","","") adds a label at 100
-  ) +
+  #) +
   #facet_wrap(~ country) +
-  facet_wrap(~  factor(Site, levels=c(Burnside_Full, Gault_Full, Burnside_Clear, Gault_Clear, Burnside_Cloudy, Gault_Cloudy))) +
+  facet_wrap(~  factor(Site)) + #, levels=c(burnsideFull, gaultFull, burnsideClear, gaultClear, burnsideCloudy, gaultCloudy))) +
   coord_cartesian(clip = "off") +
   theme(
     axis.title = element_blank(),
@@ -248,14 +251,14 @@ p1
 
 means_long <- wavenumberDiffMeans %>%
   pivot_longer(
-    cols = c(Full_Sky, Clear, Cloudy), # The columns you want to combine
+    cols = c(Full.Sky, Clear, Cloudy), # The columns you want to combine
     names_to = "Sky",                                 # Name for the new category column
     values_to = "Means"                               # Name for the new data values column
   )
 
 sd_long <- wavenumberDiffSTD %>%
   pivot_longer(
-    cols = c(Full_Sky, Clear, Cloudy),
+    cols = c(Full.Sky, Clear, Cloudy),
     names_to = "Sky",
     values_to = "STD"
   )
@@ -267,16 +270,48 @@ df_join <- means_long %>%
 # Try to associate each group to a specific colour using:
 #group.colors = c(A =, B =, C =,), then 
 
-ggplot(data = df_join, aes(x = Wavenumber, group = Sky)) + 
-  geom_line(aes(y = Value, color = Sky), size = 1) + 
-  geom_ribbon(aes(y = Value, ymin = 0 - STD, ymax = 0 + STD, fill = Sky), alpha = .2) + # Put ribbon at 0, null hypothesis...
+p <- ggplot(data = df_join, aes(x = Wavenumbers, group = Sky)) + 
+  geom_line(aes(y = Means, color = Sky), size = 0.1) + 
+  geom_ribbon(aes(y = Means, ymin = 0 - STD, ymax = 0 + STD, fill = Sky), alpha = .2) + # Put ribbon at 0, null hypothesis...
   xlab("Wavenumber") + 
   theme_bw() +  
   theme(legend.key = element_blank()) + 
   theme(plot.margin=unit(c(1,3,1,1),"cm"))+
-  theme(legend.position = c(1.1,.6), legend.direction = "vertical") +
+  theme(legend.position = c(1.175,.5), legend.direction = "vertical") +
   theme(legend.title = element_blank()) +
   facet_grid(Sky~.) # Facet into rows based on the sky
   #scale_fill_manual(values=group.colors) # if you want to choose the colours specifically
   
+p 
+
+####################### Difference Plots w/ Significances ######################
+
+sigMeans <- wavenumberDiffMeans
+sigMeans$Full.Sky <- wavenumberSignificance$sigDiffFull
+sigMeans$Clear <- wavenumberSignificance$sigDiffClear
+sigMeans$Cloudy <- wavenumberSignificance$sigDiffCloudy
+
+sigMeansLong <- sigMeans %>%
+  pivot_longer(
+    cols = c(Full.Sky, Clear, Cloudy),
+    names_to = "Sky", 
+    values_to  = "Sig"
+  )
+
+sig_join <- means_long %>% 
+  left_join(sigMeansLong)
+#> Joining, by = c("date", "variable")
   
+p <- ggplot(data = sig_join, aes(x=Wavenumbers, group = Sky)) +
+  geom_line(aes(y = Means, color = Sky), size = 0.1) +
+  geom_line(aes(y = 0), color = 'black', size = 0.5) +
+  geom_ribbon(aes(ymin = (-10 * Sig), ymax = (20 * Sig), fill = Sky), alpha = 0.2) +
+  xlab("Wavenumber") +  
+  theme_bw() +  
+  theme(legend.key = element_blank()) + 
+  theme(plot.margin=unit(c(1,3,1,1),"cm"))+
+  theme(legend.position = c(1.175,.5), legend.direction = "vertical") +
+  theme(legend.title = element_blank()) +
+  facet_grid(Sky~.)
+
+p
